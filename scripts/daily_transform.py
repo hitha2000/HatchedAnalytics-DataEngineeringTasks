@@ -1,60 +1,99 @@
+import sys
 import pandas as pd
-import numpy as np
 from datetime import timedelta
-import argparse
 
-def is_leap_year(year):
-    return year%4 ==0 and (year % 100 !=0 or year % 400 == 0)
+def get_gran_key(dur):
+    dur = dur.lower()
+    if 'week' in dur: return 1
+    if 'mid-month' in dur: return 2
+    if 'month' in dur: return 3
+    if 'quarter' in dur: return 4
+    if 'year' in dur: return 5
+    return 6
 
-def daily_transform(input_csv, output_csv):
-    df = pd.read_csv(input_csv, parse_dates=["PERIODEND"])
+def infer_period(row):
+    end = pd.to_datetime(row.PERIODEND) - timedelta(days=1)
+    dur = row.DURATION.lower()
+    if 'mid-month' in dur or 'month' in dur:
+        start = end.replace(day=1)
+    elif 'week' in dur:
+        start = end - timedelta(days=6)
+    elif 'quarter' in dur:
+        start = end - timedelta(days=90)
+    elif 'year' in dur:
+        start = end.replace(month=1, day=1)
+    else:
+        start = end
+    return start, end
+
+def daily_transform(input_path, output_path):
+    df = pd.read_csv(input_path)
+    df['PERIODEND'] = pd.to_datetime(df['PERIODEND'], format='%d/%m/%y')
+
+    df['gran_key'] = df['DURATION'].apply(get_gran_key)
+    grouped = df.groupby(['TICKER', 'INDEXNAME'])
 
     daily_rows = []
 
-    for row in df.itertuples:
-        ticker = row.TICKER
-        duration = row.DURATION
-        period_end = row.PERIODEND
-        index_name = row.INDEXNAME
-        value = row.VALUE
+    for (ticker, indexname), group in grouped:
+        g = group.sort_values(['gran_key', 'PERIODEND']).reset_index(drop=True)
+        daily_values = {} 
 
-        if duration.lower() == "week":
-            period_length = 7
-        elif duration.lower() == "month":
-            start_date = period_end.replace(day=1)
-            period_length = (period_end - start_date).days + 1
-        elif ("custom quarter" or "quarter") in duration.lower():
-            # for simplicity i have assumed ~91 days for custom/standard quarters
-            period_length = 91 
-        elif duration.lower() == "year":
-            period_length = 366 if is_leap_year(period_end.year) else 365
-        else:
-            period_length = 30
+        for _, row in g.iterrows():
+            start, end = infer_period(row)
+            dates = pd.date_range(start=start, end=end, freq='D')
+            if len(dates) == 0:
+                continue
 
-        start_date = period_end - timedelta(days= period_length-1)
+            # Calculate existing sum on these dates
+            current_sum = sum(daily_values.get(d, 0) for d in dates)
+            remaining_value = row['VALUE'] - current_sum
+            uncovered_dates = [d for d in dates if daily_values.get(d, 0) == 0]
 
-        daily_value = value / period_length
+            if len(uncovered_dates) == 0 or remaining_value <= 0:
+                continue
 
-        for i in range(period_length):
-            current_day = start_date + timedelta(days=i)
+            daily_add = remaining_value / len(uncovered_dates)
+
+            for d in uncovered_dates:
+                daily_values[d] = daily_add
+
+        # Build daily rows
+        for d in sorted(daily_values.keys()):
             daily_rows.append({
-                "TICKER": ticker,
-                "DATE": current_day,
-                "INDEXNAME": indexname,
-                "DAILYVALUE": daily_value,
-                "DURATION": duration,
-                "PERIODEND": period_end
+                'TICKER': ticker,
+                'DURATION': 'Daily',
+                'PERIODEND': d,
+                'INDEXNAME': indexname,
+                'VALUE': daily_values[d],
+                'CUMULATIVEVALUE': 0
             })
 
-        daily_df = pd.DataFrame(daily_rows)
+    if not daily_rows:
+        print("No data to process.")
+        return
 
-        daily_df.to_csv(output_csv, index=False)
-        print(f"Daily data saved to {output_csv}")
+    daily_df = pd.DataFrame(daily_rows)
+    daily_df = daily_df.sort_values(['TICKER', 'INDEXNAME', 'PERIODEND'])
+    daily_df['CUMULATIVEVALUE'] = daily_df.groupby(['TICKER', 'INDEXNAME'])['VALUE'].cumsum()
+
+    # Format dates
+    daily_df['PERIODEND'] = daily_df['PERIODEND'].dt.strftime('%Y-%m-%d')
+    if 'RELEASEDDATE' in daily_df.columns:
+        daily_df['RELEASEDDATE'] = daily_df['RELEASEDDATE'].apply(
+            lambda x: x.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3] if pd.notnull(x) else ''
+        )
+
+    daily_df.to_csv(output_path, index=False)
+    print(f"Daily data saved to {output_path}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Transform period-based index data into daily values.")
-    parser.add_argument("--input", required=True, help="Input CSV file path")
-    parser.add_argument("--output", required=True, help="Output CSV file path")
-    args = parser.parse_args()
+    if len(sys.argv) != 5 or sys.argv[1] != "--input" or sys.argv[3] != "--output":
+        print("Usage: python script.py --input <input-path> --output <output-path>")
+        sys.exit(1)
 
-    daily_transform(args.input, args.output)
+    input_path = sys.argv[2]
+    output_path = sys.argv[4]
+
+    daily_transform(input_path, output_path)
+
