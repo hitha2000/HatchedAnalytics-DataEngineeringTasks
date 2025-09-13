@@ -5,8 +5,8 @@ This repository contains the solution to the Hatched Analytics data engineering 
 Daily Transformation – Convert weekly, monthly, or quarterly index data into daily values.
 Quarterly Forecast – Estimate quarterly totals mid-quarter using available weekly/monthly data.
 
-# Repository Structure
-
+## Repository Structure
+```
 HatchedAnalytics-DataEngineeringTasks/
 │
 ├── data/                     # Sample input file
@@ -22,25 +22,27 @@ HatchedAnalytics-DataEngineeringTasks/
 │
 ├── README.md                 # Project documentation
 └── .gitignore
+```
 
-# Requirements
-Python version: 3.9+
-Dependencies: pandas, python-dateutil
-Install dependencies using: pip install pandas python-dateutil
+## Requirements
+* Python version: 3.9+
+* Dependencies: pandas, python-dateutil
+* Install dependencies using: 
+```pip install pandas python-dateutil```
 
 # Usage Instructions
 
 ## Task 1: Daily Transformation
-Converts all durations (weekly, monthly, quarterly) into daily values.
-Computes cumulative daily values per ticker/index.
-
-python daily_transform.py --input ../data/index.csv --output ../outputs/daily_output.csv
+* Converts all durations (weekly, monthly, quarterly) into daily values.
+* Computes cumulative daily values per ticker/index.
+* Command to run the script:
+```python daily_transform.py --input ../data/index.csv --output ../outputs/daily_output.csv```
 
 ## Task 2: Quarterly Forecast
-Estimates quarterly totals using available weekly and monthly data.
-If a quarter is partially available (e.g., 1–3 weeks), extrapolates remaining days using daily rate.
-
-python quarterly_forecast.py --input ../data/index.csv --output ../outputs/quarterly_output.csv
+* Estimates quarterly totals using available weekly and monthly data.
+* If a quarter is partially available (e.g., 1–3 weeks), extrapolates remaining days using daily rate.
+* Command to run the script:
+```python quarterly_forecast.py --input ../data/index.csv --output ../outputs/quarterly_output.csv```
 
 # Assumptions Made
 * Task 1: Quarters are approximated as ~90 days; years start from Jan 1.
