@@ -30,7 +30,7 @@ HatchedAnalytics-DataEngineeringTasks/
 * Install dependencies using: 
 ```pip install pandas python-dateutil```
 
-# Usage Instructions
+## Usage Instructions
 
 ## Task 1: Daily Transformation
 * Converts all durations (weekly, monthly, quarterly) into daily values.
@@ -44,22 +44,44 @@ HatchedAnalytics-DataEngineeringTasks/
 * Command to run the script:
 ```python quarterly_forecast.py --input ../data/index.csv --output ../outputs/quarterly_output.csv```
 
-# Assumptions Made
+## Assumptions Made
 * Task 1: Quarters are approximated as ~90 days; years start from Jan 1.
 * Task 2: Extrapolation is based on available Weeks + Months only.
 * Dates are in %d/%m/%y format.
 * If no data exists for a quarter, no estimate is made.
 
-# Limitations & Edge Cases
+## Limitations & Edge Cases
 * If only weekly data is available, extrapolation is used to estimate the quarter.
 * Custom quarters may require adjustment to the logic.
 * The estimate assumes a linear growth pattern from observed data.
 
-# Why Python and Not Spark/Scala
+## Challenges Faced
+
+### Task 1: Daily Transformation
+* Handling overlapping data sources for the same month was challenging. For example:
+    * Weekly data points were available within a month.
+    * Mid-month values were also provided.
+    * A full monthly aggregate existed too.
+* Ensuring correct precedence of weekly → mid-month → monthly values without double-counting required careful logic.
+* The allocation of values across daily ranges also needed adjustments so that daily totals matched the reported higher-level aggregate.
+
+### Task 2: Quarterly Forecast
+* Incomplete months at the start or end of a quarter were straightforward to handle by prorating values.
+* A bigger challenge arose when months and weeks overlapped within the same quarter (e.g., both an August total and individual weeks of August were reported).
+* To avoid overestimation, the script had to detect overlaps and adjust daily/weekly contributions before extrapolating the quarterly forecast.
+
+## Why Python and Not Spark/Scala
 * Python/pandas was chosen for simplicity, readability, and speed of implementation for small to medium datasets.
 * The sample data provided in this assessment is relatively small, so pandas can handle it efficiently without the complexity of a distributed system.
 * In a production setting, where input datasets could span billions of rows across multiple tickers and indices, the daily transformation and quarterly forecasting logic can be implemented using Spark (Scala or PySpark). Spark’s distributed processing allows scaling across clusters while applying the same core algorithms, including uniform daily interpolation and linear or seasonal forecasting.
 
-# Future Improvements
+## Alternative Approaches and Scalability
+* Python with pandas was chosen for simplicity, readability, and speed of implementation on small to medium datasets.
+* For larger-scale production systems, Spark (Scala or PySpark) would be a strong candidate. Spark’s distributed processing could efficiently handle billions of rows while applying the same transformation and forecasting logic.
+* Alternative approaches could also incorporate:
+    * SQL-based pipelines for ETL transformations.
+    * Time-series forecasting models to provide more sophisticated extrapolation beyond linear assumptions.
+
+## Future Improvements
 * Support custom quarterly definitions and fiscal calendars.
 * Extend extrapolation logic to consider seasonal patterns or year-over-year trends.
